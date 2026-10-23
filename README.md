@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/github/v/release/jark006/ftpServer)](https://github.com/jark006/FtpServer/releases/latest) ![Download](https://img.shields.io/github/downloads/jark006/FtpServer/total) [![Stars](https://img.shields.io/github/stars/jark006/ftpServer)](https://github.com/jark006/FtpServer/stargazers) [![License](https://img.shields.io/github/license/jark006/ftpServer)](https://github.com/jark006/FtpServer/blob/main/LICENSE) ![Platform](https://img.shields.io/badge/OS-Windows%2010/11%2064%20bit-00adef.svg)
 
-一键开启FTP文件服务器，方便其他设备通过网络传输、管理文件，支持IPv4/IPv6、多用户、FTPS。
+一键开启FTP文件服务器，方便其他设备通过网络传输、管理文件，支持IPv4/IPv6、多用户，强制 FTPS [TLS/SSL 显式加密] 传输。
 
 ![](preview.png)
 
@@ -85,7 +85,14 @@ Windows文件管理器对 `显式FTPS` 支持不佳，推荐使用开源客户�
 
 ## 🧩 使用到的库
 
-1. [pyftpdlib](https://github.com/giampaolo/pyftpdlib)
+1. [pyftpdlib](https://github.com/giampaolo/pyftpdlib) — 本地内嵌为 `mypyftpdlib`，基线为上游 `2.2.0 (release-2.2.0)`，本地定制：中文日志、`ftp_PASS` 密码哈希钩子、Windows `_isabs` 加固、移除 `__main__.py` 与 `curses` 依赖
 2. [tkinter](https://docs.python.org/3/library/tkinter.html)
 3. [pystray](https://github.com/moses-palmer/pystray)
 4. [Pillow](https://github.com/python-pillow/Pillow)
+5. [cryptography](https://github.com/pyca/cryptography) — TLS/SSL 证书生成
+6. [pyOpenSSL](https://github.com/pyca/pyopenssl) — FTPS 运行时加密
+
+**📌 运行环境**
+
+1. 要求 Python 3.15+（开发验证于 3.15.1），依赖版本固定见 [requirements.txt](requirements.txt)。
+2. Nuitka 打包暂缓：4.3.x 对 Python 3.15 仅为实验性支持，且 Python 3.13+ 不兼容 MinGW64，需 MSVC 2022+ 工具链。

@@ -9,16 +9,17 @@ Project: https://github.com/jark006/FtpServer
 License: MIT License
 Copyright (c) 2023-2026 JARK006
 
-# 打包工具
-    pip install Nuitka[onefile]
+# 运行环境
+    Python 3.15+ (开发验证于 3.15.1)
 
-# 第三方库需求
-    pip install -r requirements.txt
+# 第三方库需求 (版本固定于 requirements.txt)
+    py -3.15 -m pip install -r requirements.txt
 
 # pywin32 还需后安装
     pywin32_postinstall -install
 
 # nuitka打包脚本 依赖解析本文件的版本变量声明 appVersion = "vX.Y"  依次打包输出 单文件及单目录
+    （暂缓：Nuitka 4.3.x 对 Python 3.15 仅实验性支持，且 3.13+ 不兼容 MinGW64，需 MSVC 2022+）
     build-nuitka.ps1
 """
 

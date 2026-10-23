@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## 项目结构与模块组织
-`ftpServer.py` 是 Windows 图形界面入口和 FTP 服务启动文件。仓库根目录下的 `Settings.py` 负责配置读写，`UserList.py` 负责多用户 CSV 解析，`myUtils.py` 提供图标、路径等通用工具。`mypyftpdlib/` 是本项目使用的定制版 FTP 库。`ftpServer.build/`、`ftpServer.dist/`、`ftpServer.onefile-build/` 都属于生成产物，不要手工修改。`FtpServer.json`、`FtpServerUserList.csv` 这类运行期数据提交前应先脱敏。
+`ftpServer.py` 是 Windows 图形界面入口和 FTP 服务启动文件（强制 FTPS，无证书时启动引导生成或选择自定义证书）。仓库根目录下的 `Settings.py` 负责配置读写，`UserList.py` 负责多用户 CSV 解析，`myUtils.py` 提供图标、路径校验等通用工具。`mypyftpdlib/` 是本项目使用的定制版 FTP 库：基线为上游 pyftpdlib `2.2.0 (release-2.2.0)`，同步上游时必须保留本地定制——中文日志、`handlers/ftp/control.py` 的 `ftp_PASS` 密码哈希钩子、`filesystems.py` 的 `_isabs` Windows 加固、移除 `__main__.py` 与 `curses` 依赖。`ftpServer.build/`、`ftpServer.dist/`、`ftpServer.onefile-build/` 都属于生成产物，不要手工修改。`FtpServer.json`、`FtpServerUserList.csv` 这类运行期数据提交前应先脱敏。
 
 ```
 ftpServer.py          # 主入口：GUI (Tkinter) + FTP 服务器生命周期
@@ -15,17 +15,19 @@ ftpServer.py          # 主入口：GUI (Tkinter) + FTP 服务器生命周期
 ```
 
 ## 构建、测试与开发命令
-建议在 Windows PowerShell 中开发：
+建议在 Windows PowerShell 中开发，要求 Python 3.15+（依赖版本固定于 requirements.txt）：
 
 ```powershell
-python -m venv venv
+py -3.15 -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 pywin32_postinstall -install
-python .\ftpServer.py
+py -3.15 .\ftpServer.py
 ```
 
-`python .\ftpServer.py` 用于本地启动程序。
+`py -3.15 .\ftpServer.py` 用于本地启动程序。测试位于 `tests/`（pytest），运行：`pytest tests`。
+
+Nuitka 打包暂缓：4.3.x 对 Python 3.15 仅为实验性支持，且 Python 3.13+ 不兼容 MinGW64，需 MSVC 2022+ 工具链；恢复打包前需先验证 build-nuitka.ps1。
 
 ## 编码风格与命名约定
 遵循当前代码风格：使用 4 空格缩进，新写或修改的逻辑尽量补充类型标注；函数和局部变量使用 `snake_case`，类名使用 `PascalCase`。保留现有模块命名方式，如 `Settings.py`、`UserList.py`。优先抽取小型辅助函数，避免继续堆积超长内联逻辑；统一复用 `logging.getLogger("ftpserver")`；无明确必要不要新增第三方依赖。

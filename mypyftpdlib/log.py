@@ -13,9 +13,9 @@ Instead you should use logging.basicConfig before serve_forever().
 import logging
 import re
 import time
-import curses
 
-from .utils import term_supports_colors
+# 本地定制：移除 curses 及 term_supports_colors 依赖（GUI 程序无终端彩色输出，
+# 且 windows-curses 尚无 Python 3.15 wheel）
 
 # default logger
 logger = logging.getLogger("pyftpdlib")

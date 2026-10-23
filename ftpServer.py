@@ -23,13 +23,13 @@ Copyright (c) 2023-2026 JARK006
 """
 
 # 标准库导入
+import datetime
 import logging
 import os
 import queue
 import socket
 import sys
 import threading
-import time
 import ctypes
 import functools
 import webbrowser
@@ -43,7 +43,10 @@ import pystray
 import win32clipboard
 import win32con
 import win32com.client
-from OpenSSL import crypto
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 # 本地模块导入
 import Settings
@@ -718,28 +721,39 @@ def generateTlsCert():
 
     try:
         # 生成 2048 位 RSA 密钥 (无密码保护, 等价 -nodes)
-        key = crypto.PKey()
-        key.generate_key(crypto.TYPE_RSA, 2048)
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
         # 构造自签名 X.509 v3 证书
-        cert = crypto.X509()
-        cert.set_version(2)  # X.509 v3 (0-indexed)
-        subject = cert.get_subject()
-        subject.CN = "ftpServer"
-        subject.O = "JARK006"
-        subject.OU = "FtpServer"
-        cert.set_serial_number(int(time.time()))
-        cert.gmtime_adj_notBefore(0)
-        cert.gmtime_adj_notAfter(int(10 * 365.2425 * 24 * 60 * 60))  # 10 年有效期
-        cert.set_issuer(subject)  # 自签名, 颁发者与使用者相同
-        cert.set_pubkey(key)
-        cert.sign(key, "sha256")
+        subject = issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "JARK006"),
+                x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "FtpServer"),
+                x509.NameAttribute(NameOID.COMMON_NAME, "ftpServer"),
+            ]
+        )
+        now = datetime.datetime.now(datetime.timezone.utc)
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)  # 自签名, 颁发者与使用者相同
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(now + datetime.timedelta(days=3653))  # 10 年有效期
+            .sign(key, hashes.SHA256())
+        )
 
         # 覆盖写入（收敛校验：写入路径必须位于程序目录内，防止异常路径越界写入）
         with myUtils.validateInsideAppDirectory(keyFilePath).open("wb") as f:
-            f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, key))
+            f.write(
+                key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.NoEncryption(),
+                )
+            )
         with myUtils.validateInsideAppDirectory(certFilePath).open("wb") as f:
-            f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+            f.write(cert.public_bytes(serialization.Encoding.PEM))
 
         logger.info(f"已生成 TLS/SSL 密钥: {keyFilePath}")
         logger.info(f"已生成 TLS/SSL 证书: {certFilePath}")

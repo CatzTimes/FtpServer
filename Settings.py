@@ -106,7 +106,9 @@ class Settings:
             "isAutoStartServer": self.isAutoStartServer,
         }
         try:
-            with open(self.savePath, "w", encoding="utf-8") as file:
+            # 收敛校验：写入路径必须位于程序目录内，防止异常路径越界写入
+            savePath = myUtils.validateInsideAppDirectory(self.savePath)
+            with savePath.open("w", encoding="utf-8") as file:
                 json.dump(variables, file, ensure_ascii=False, indent=4)
         except Exception as e:
             logger.error(f"设置文件保存异常: {self.savePath}\n{e}")

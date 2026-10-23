@@ -2,6 +2,7 @@ import base64
 import io
 import os
 import sys
+from pathlib import Path
 from PIL import Image, ImageTk
 
 tipsTitle: str = "若用户名空白则默认匿名访问(anonymous)，若中文乱码则需更换编码方式，若无需开启IPv6只需将其端口留空即可，IPv4同理，若需FTPS或多用户配置，请点击“帮助”按钮查看使用说明。若客户端无法连接，则需到系统防火墙允许本软件通过。\n\n本机所有IP地址："
@@ -79,6 +80,19 @@ def getAppDirectory() -> str:
     ):
         appDirectory = appDirectory[0].upper() + appDirectory[1:]
     return appDirectory
+
+
+def validateInsideAppDirectory(path: str) -> Path:
+    """校验路径解析后仍位于程序目录内，返回解析后的绝对 Path。
+
+    程序目录派生自启动参数，证书与配置等写入路径统一在此收敛校验，
+    防御异常启动参数导致的越界写入。
+    """
+    appDir = Path(getAppDirectory()).resolve()
+    realPath = Path(path).resolve()
+    if realPath != appDir and not realPath.is_relative_to(appDir):
+        raise ValueError(f"路径越界，拒绝访问程序目录之外的文件: {path}")
+    return realPath
 
 
 class IconObj():

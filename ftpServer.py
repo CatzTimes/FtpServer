@@ -735,10 +735,10 @@ def generateTlsCert():
         cert.set_pubkey(key)
         cert.sign(key, "sha256")
 
-        # 覆盖写入
-        with open(keyFilePath, "wb") as f:
+        # 覆盖写入（收敛校验：写入路径必须位于程序目录内，防止异常路径越界写入）
+        with myUtils.validateInsideAppDirectory(keyFilePath).open("wb") as f:
             f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, key))
-        with open(certFilePath, "wb") as f:
+        with myUtils.validateInsideAppDirectory(certFilePath).open("wb") as f:
             f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
 
         logger.info(f"已生成 TLS/SSL 密钥: {keyFilePath}")

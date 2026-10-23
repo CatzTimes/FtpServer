@@ -1,5 +1,6 @@
-Pillow
-pywin32
-pystray
-pyopenssl
-pyasynchat
+Pillow==13.0.0
+pywin32==312
+pystray==0.19.5
+pyOpenSSL==26.4.0
+cryptography>=49.0.0,<51
+pyasynchat==1.0.5

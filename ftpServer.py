@@ -33,6 +33,7 @@ import threading
 import ctypes
 import functools
 import webbrowser
+from pathlib import Path
 
 # GUI相关导入
 import tkinter as tk
@@ -332,6 +333,106 @@ def is_internal_ip(ip_str: str) -> bool:
     )
 
 
+def selectCustomCert() -> bool:
+    """
+    选择自定义 TLS/SSL 证书与密钥文件，校验配对后成对拷贝为程序目录下的
+    ftpServer.crt / ftpServer.key（沿用固定文件名约定）。
+    """
+    global certFilePath
+    global keyFilePath
+
+    crtPath = filedialog.askopenfilename(
+        title="选择自定义证书文件 (PEM 格式, 如 xxx.crt)",
+        filetypes=[("证书文件", "*.crt *.cer *.pem"), ("所有文件", "*.*")],
+    )
+    if len(crtPath) == 0:
+        return False
+    keyPath = filedialog.askopenfilename(
+        title="选择自定义私钥文件 (PEM 格式, 如 xxx.key)",
+        filetypes=[("私钥文件", "*.key *.pem"), ("所有文件", "*.*")],
+    )
+    if len(keyPath) == 0:
+        return False
+
+    try:
+        certData = Path(crtPath).resolve().read_bytes()
+        keyData = Path(keyPath).resolve().read_bytes()
+
+        # 先校验证书与私钥有效且匹配，再覆盖写入
+        cert = x509.load_pem_x509_certificate(certData)
+        key = serialization.load_pem_private_key(keyData, password=None)
+        if cert.public_key().public_numbers() != key.public_numbers():
+            raise ValueError("证书与私钥不匹配")
+
+        myUtils.validateInsideAppDirectory(certFilePath).write_bytes(certData)
+        myUtils.validateInsideAppDirectory(keyFilePath).write_bytes(keyData)
+
+        logger.info(f"已应用自定义 TLS/SSL 证书: [{crtPath}] 密钥: [{keyPath}]")
+        return True
+    except Exception as e:
+        tips: str = f"应用自定义 TLS/SSL 证书失败: {e}"
+        logger.error(tips)
+        messagebox.showerror("证书异常", tips)
+        return False
+
+
+def promptTlsCertSetup() -> bool:
+    """
+    未检测到证书时引导用户配置证书（强制 FTPS）。
+    返回 True 表示证书文件已就绪，可以继续启动服务。
+    """
+    global mainWindow
+    global iconImage
+
+    result: dict = {"ready": False}
+
+    dialog = tk.Toplevel(mainWindow)
+    dialog.title("强制 FTPS 加密")
+    dialog.resizable(False, False)
+    dialog.transient(mainWindow)
+    dialog.grab_set()
+    dialog.iconphoto(False, iconImage)  # type: ignore
+
+    ttk.Label(
+        dialog,
+        text=(
+            "本软件强制启用 FTPS [TLS/SSL 显式加密] 传输，\n"
+            "启动服务前需要 TLS/SSL 证书文件 (ftpServer.crt 与 ftpServer.key)。\n\n"
+            "可选择自动生成自签名证书，或选择已有的自定义证书文件。"
+        ),
+        justify=tk.LEFT,
+    ).pack(padx=scale(15), pady=(scale(15), scale(10)))
+
+    buttonFrame = ttk.Frame(dialog)
+    buttonFrame.pack(pady=(0, scale(15)))
+
+    def closeDialog():
+        dialog.grab_release()
+        dialog.destroy()
+
+    def onGenerate():
+        generateTlsCert()
+        result["ready"] = os.path.exists(certFilePath) and os.path.exists(keyFilePath)
+        closeDialog()
+
+    def onSelectCustom():
+        result["ready"] = selectCustomCert()
+        closeDialog()
+
+    ttk.Button(buttonFrame, text="自动生成证书", command=onGenerate).pack(
+        side=tk.LEFT, padx=scale(5)
+    )
+    ttk.Button(buttonFrame, text="选择自定义证书", command=onSelectCustom).pack(
+        side=tk.LEFT, padx=scale(5)
+    )
+    ttk.Button(buttonFrame, text="取消", command=closeDialog).pack(
+        side=tk.LEFT, padx=scale(5)
+    )
+
+    dialog.wait_window()
+    return result["ready"]
+
+
 def startServer():
     global settings
     global userList
@@ -360,6 +461,15 @@ def startServer():
         logger.warning(tips)
         messagebox.showerror("路径异常", tips)
         return
+
+    # 强制 FTPS：无证书时引导生成或选择自定义证书，拒绝以明文 FTP 启动
+    if not (os.path.exists(certFilePath) and os.path.exists(keyFilePath)):
+        logger.warning(
+            "未检测到 TLS/SSL 证书文件, 强制 FTPS 需要 ftpServer.crt 与 ftpServer.key"
+        )
+        if not promptTlsCertSetup():
+            logger.warning("已取消证书配置, 服务未启动 (强制 FTPS, 不支持明文 FTP)")
+            return
 
     userList.load()
     if userList.isEmpty():
@@ -419,15 +529,11 @@ def startServer():
                     perm=userItem.perm,
                 )
 
-        has_tls_cert = os.path.exists(certFilePath) and os.path.exists(keyFilePath)
-        if has_tls_cert:
-            logger.info(
-                "已加载 TLS/SSL 证书文件, 默认启用 FTPS [TLS/SSL显式加密]"
-            )
+        logger.info("强制启用 FTPS [TLS/SSL 显式加密], 已加载证书文件")
 
         hasStartServer: bool = False
         if isIPv4Supported and settings.IPv4Port > 0:
-            handler = create_server_handler(authorizer, has_tls_cert, "IPv4")
+            handler = create_server_handler(authorizer, "IPv4")
             serverThreadV4 = threading.Thread(
                 target=serverThreadFun, args=("IPv4", handler)
             )
@@ -435,7 +541,7 @@ def startServer():
             hasStartServer = True
 
         if isIPv6Supported and settings.IPv6Port > 0:
-            handler = create_server_handler(authorizer, has_tls_cert, "IPv6")
+            handler = create_server_handler(authorizer, "IPv6")
             serverThreadV6 = threading.Thread(
                 target=serverThreadFun, args=("IPv6", handler)
             )
@@ -476,28 +582,22 @@ def startServer():
 
 
 def create_server_handler(
-    authorizer: DummyAuthorizer, has_tls_cert: bool, IP_Family: str
+    authorizer: DummyAuthorizer, IP_Family: str
 ) -> type[FTPHandler]:
-    base_handler = TLS_FTPHandler if has_tls_cert else FTPHandler
+    """强制 FTPS：始终返回启用 TLS 的 handler（控制与数据通道均要求加密）。"""
     handler_attrs = {
         "authorizer": authorizer,
         "encoding": "gbk" if settings.isGBK else "utf8",
         "permit_foreign_addresses": True, # 允许所有IP地址连接以适应复杂的网络环境，但有被滥用于 FTP bounce、端口探测或内网探测的风险
         "permit_privileged_ports": True,
+        "certfile": certFilePath,
+        "keyfile": keyFilePath,
+        "tls_control_required": True,
+        "tls_data_required": True,
+        "ssl_context": None, # Keep TLS context cache isolated on this dynamic handler class.
     }
 
-    if has_tls_cert:
-        handler_attrs.update(
-            {
-                "certfile": certFilePath,
-                "keyfile": keyFilePath,
-                "tls_control_required": True,
-                "tls_data_required": True,
-                "ssl_context": None, # Keep TLS context cache isolated on this dynamic handler class.
-            }
-        )
-
-    return type(f"{IP_Family}{base_handler.__name__}", (base_handler,), handler_attrs)
+    return type(f"{IP_Family}{TLS_FTPHandler.__name__}", (TLS_FTPHandler,), handler_attrs)
 
 
 def serverThreadFun(IP_Family: str, handler: type[FTPHandler]):
@@ -1159,7 +1259,11 @@ def main():
         mainWindow.withdraw()
 
     if os.path.exists(certFilePath) and os.path.exists(keyFilePath):
-        logger.info("检测到 TLS/SSL 证书文件, 默认使用 FTPS [TLS/SSL显式加密]")
+        logger.info("检测到 TLS/SSL 证书文件, 服务将强制以 FTPS [TLS/SSL显式加密] 运行")
+    else:
+        logger.warning(
+            "未检测到 TLS/SSL 证书文件, 开启服务时将引导生成或选择证书 (强制 FTPS, 不支持明文 FTP)"
+        )
 
     mainWindow.mainloop()
 

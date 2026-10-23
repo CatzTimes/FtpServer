@@ -6,21 +6,23 @@
 
 ![](preview.png)
 
-## 🔐 FTPS 配置
+## 🔐 FTPS 配置（强制启用）
 
-*本软件默认使用 FTP 明文传输数据，如果数据比较敏感，或者网络环境不安全，则可以按以下步骤开启 FTPS 加密传输数据。*
+*本软件强制使用 FTPS [TLS/SSL 显式加密] 传输数据，不支持明文 FTP。启动服务时若未检测到证书文件，会弹出引导对话框要求配置证书。*
 
-只需生成TLS/SSL证书文件即可启用 `FTPS [TLS/SSL显式加密]`，以下两种方式均可:
+证书文件固定为程序所在目录下的 `ftpServer.crt` 与 `ftpServer.key`，以下三种方式均可:
 
-1. 在 `托盘图标` 右键菜单中选择 `生成 FTPS TLS/SSL 证书`。
+1. 首次开启服务时，在引导对话框中选择 `自动生成证书`（自签名，有效期10年）。
 
-2. 在 `Linux` 或 `MinGW64` 终端使用 `openssl` 命令生成TLS/SSL证书文件(`ftpServer.key` 和 `ftpServer.crt`)，`不要重命名` 文件为其他名称，直接将 `ftpServer.key` 和 `ftpServer.crt` 放到程序所在目录，开启服务时若存在这两个文件，则启用加密传输 。
+2. 首次开启服务时，在引导对话框中选择 `选择自定义证书`，依次选择已有的证书与私钥文件（PEM 格式），软件会校验两者配对后自动拷贝为上述固定文件名。
+
+3. 在 `托盘图标` 右键菜单中选择 `生成 FTPS TLS/SSL 证书`，或自行使用 `openssl` 命令生成TLS/SSL证书文件，`不要重命名` 文件为其他名称，直接将 `ftpServer.key` 和 `ftpServer.crt` 放到程序所在目录。
 
     ```sh
     openssl req -x509 -newkey rsa:2048 -keyout ftpServer.key -out ftpServer.crt -nodes -days 3653
     ```
 
-Windows文件管理器对 `显式FTPS` 支持不佳，推荐使用开源客户端软件 [WinSCP](https://winscp.net/eng/index.php)，对 FTPS 支持比较好。开启 FTPS 加密传输后，会 `影响传输性能`，最大传输速度会降到 `50MiB/s` 左右。若对网络安全没那么高要求，不建议加密。
+Windows文件管理器对 `显式FTPS` 支持不佳，推荐使用开源客户端软件 [WinSCP](https://winscp.net/eng/index.php)，对 FTPS 支持比较好。FTPS 加密传输会影响传输性能，最大传输速度约 `50MiB/s`。
 
 ---
 

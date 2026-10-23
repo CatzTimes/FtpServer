@@ -60,12 +60,12 @@ from mypyftpdlib.handlers import FTPHandler, TLS_FTPHandler
 from mypyftpdlib.servers import ThreadedFTPServer
 
 appLabel = "FTP文件服务器"
-appVersion = "v1.27"
+appVersion = "v1.28"
 appAuthor = "JARK006"
-githubLink = "https://github.com/jark006/FtpServer"
-releaseLink = "https://github.com/jark006/FtpServer/releases"
-lanzouLink = "https://jark006.lanzout.com/b0koxtm7g"
-baiduLink = "https://pan.baidu.com/s/1955qjdrnPtxhNhtksjqvfg?pwd=6666"
+forkMaintainer = "CatzTimes"
+githubLink = "https://github.com/CatzTimes/FtpServer"
+releaseLink = "https://github.com/CatzTimes/FtpServer/releases"
+upstreamLink = "https://github.com/jark006/FtpServer"
 windowsTitle = f"{appLabel} {appVersion}"
 
 logMsg = queue.Queue()
@@ -86,11 +86,22 @@ keyFilePath: str = os.path.join(appDirectory, "ftpServer.key")
 
 scaleFactor: int = 100
 mutex_handle: int = 0
+ftpsStatusLabel = None
 
 
 def scale(n: int) -> int:
     global scaleFactor
     return int(n * scaleFactor / 100)
+
+
+def updateFtpsStatusLabel():
+    global ftpsStatusLabel
+    if ftpsStatusLabel is None:
+        return
+    if os.path.exists(certFilePath) and os.path.exists(keyFilePath):
+        ftpsStatusLabel.configure(text="FTPS: ●已启用", fg="#2e7d32")
+    else:
+        ftpsStatusLabel.configure(text="FTPS: ○未配置证书", fg="#e65100")
 
 
 def showHelpWindow():
@@ -146,15 +157,16 @@ def showAboutWindow():
         font=font.Font(font=("Consolas", scale(12))),
     ).grid(row=0, column=1, sticky=tk.S)
 
-    tk.Label(headerFrame, text=f"开发者: {appAuthor}").grid(row=1, column=1)
+    tk.Label(
+        headerFrame, text=f"开发者: {appAuthor} · Fork 维护: {forkMaintainer}"
+    ).grid(row=1, column=1)
 
     linksFrame = ttk.Frame(aboutWindows)
     linksFrame.pack(fill=tk.X, padx=scale(20), pady=(0, scale(20)))
 
     tk.Label(linksFrame, text="Github").grid(row=0, column=0)
     tk.Label(linksFrame, text="Release").grid(row=1, column=0)
-    tk.Label(linksFrame, text="蓝奏云").grid(row=2, column=0)
-    tk.Label(linksFrame, text="百度云").grid(row=3, column=0)
+    tk.Label(linksFrame, text="上游原版").grid(row=2, column=0)
 
     label1 = ttk.Label(linksFrame, text=githubLink, foreground="blue")
     label1.bind("<Button-1>", lambda event: webbrowser.open(githubLink))
@@ -164,13 +176,9 @@ def showAboutWindow():
     label2.bind("<Button-1>", lambda event: webbrowser.open(releaseLink))
     label2.grid(row=1, column=1, sticky=tk.W)
 
-    label3 = ttk.Label(linksFrame, text="点击跳转 提取码: 6666", foreground="blue")
-    label3.bind("<Button-1>", lambda event: webbrowser.open(lanzouLink))
+    label3 = ttk.Label(linksFrame, text=upstreamLink, foreground="blue")
+    label3.bind("<Button-1>", lambda event: webbrowser.open(upstreamLink))
     label3.grid(row=2, column=1, sticky=tk.W)
-
-    label4 = ttk.Label(linksFrame, text="点击跳转 提取码: 6666", foreground="blue")
-    label4.bind("<Button-1>", lambda event: webbrowser.open(baiduLink))
-    label4.grid(row=3, column=1, sticky=tk.W)
 
 
 def deleteCurrentComboboxItem():
@@ -470,6 +478,7 @@ def startServer():
         if not promptTlsCertSetup():
             logger.warning("已取消证书配置, 服务未启动 (强制 FTPS, 不支持明文 FTP)")
             return
+        updateFtpsStatusLabel()
 
     userList.load()
     if userList.isEmpty():
@@ -656,6 +665,7 @@ def stopServer():
             serverThreadV6.join()
         logger.info("IPv6服务线程已停止")
 
+    updateFtpsStatusLabel()
     setConfigWidgetsState(tk.NORMAL)
 
 
@@ -1060,6 +1070,7 @@ def main():
     global isAutoStartServerVar
     global isPasswordModified
     global mutex_handle
+    global ftpsStatusLabel
     global logger
 
     # 检查单实例
@@ -1133,6 +1144,10 @@ def main():
 
     deleteDirButton = ttk.Button(frame1, text="X", command=deleteCurrentComboboxItem, width=0)
     deleteDirButton.pack(side=tk.LEFT, padx=(0, scale(10)))
+
+    ftpsStatusLabel = tk.Label(frame1, text="")
+    ftpsStatusLabel.pack(side=tk.LEFT, padx=(0, scale(10)))
+    updateFtpsStatusLabel()
 
     ttk.Button(frame1, text="帮助", command=showHelpWindow, width=-4).pack(
         side=tk.LEFT, padx=(0, scale(5))

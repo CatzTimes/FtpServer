@@ -278,18 +278,30 @@ class DTPHandler(AsyncChat):
 
     def handle_read(self):
         """Called when there is data waiting to be read."""
-        try:
-            chunk = self.recv(self.ac_in_buffer_size)
-        except _RetryError:
-            pass
-        except OSError:
-            self.handle_error()
-        else:
-            self.tot_bytes_received += len(chunk)
-            if not chunk:
-                self.transfer_finished = True
-                # self.close()  # <-- asyncore.recv() already do that...
+        # 本地定制：有界批处理接收。TLS 下 SSL.Connection.recv 每次调用通常只
+        # 返回一条 TLS 记录(约16KiB)，单次事件内连续 recv 直到无数据(上限 1MiB)，
+        # 减少每条记录的 select 轮询/事件分发/GIL 往返。注意：不能攒批后合并写入——
+        # recv 返回 b"" 前会在内部先触发 handle_close() 关闭文件，必须逐块立即写回。
+        maxBatch = 1048576
+        received = 0
+        while received < maxBatch:
+            try:
+                chunk = self.recv(self.ac_in_buffer_size)
+            except _RetryError:
+                # TLS WantRead：当前无更多数据
+                break
+            except BlockingIOError:
+                # 非阻塞 socket 无数据可读 (EWOULDBLOCK)
+                break
+            except OSError:
+                self.handle_error()
                 return
+            if not chunk:
+                # EOF：recv 内部可能已触发 handle_close()，不得再写文件
+                self.transfer_finished = True
+                return
+            received += len(chunk)
+            self.tot_bytes_received += len(chunk)
             if self._data_wrapper is not None:
                 chunk = self._data_wrapper(chunk)
             try:

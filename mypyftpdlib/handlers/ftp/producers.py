@@ -14,7 +14,9 @@ __all__ = ["BufferedIteratorProducer", "FileProducer"]
 class FileProducer:
     """Producer wrapper for file[-like] objects."""
 
-    buffer_size = 65536
+    # 本地定制：64KiB -> 256KiB，减少每次传输的循环迭代、内存拷贝与 GIL 往返；
+    # 必须与 DTPHandler.ac_out_buffer_size 保持同值配对（asynchat 按 ac_out_buffer_size 切片）
+    buffer_size = 262144
 
     def __init__(self, file, type):
         """Initialize the producer with a data_wrapper appropriate to TYPE.

@@ -41,8 +41,10 @@ class DTPHandler(AsyncChat):
     """
 
     timeout = 300
-    ac_in_buffer_size = 65536
-    ac_out_buffer_size = 65536
+    # 本地定制：64KiB -> 256KiB，与 FileProducer.buffer_size 保持同值配对
+    # （asynchat 发送时按 ac_out_buffer_size 切片，只改 producer 不改此处无效）
+    ac_in_buffer_size = 262144
+    ac_out_buffer_size = 262144
 
     def __init__(self, sock, cmd_channel):
         """Initialize the command channel.
@@ -89,6 +91,11 @@ class DTPHandler(AsyncChat):
         if not self.connected:
             self.close()
             return
+        # 本地定制：关闭 Nagle，降低 TLS 记录(约16KiB/条)之间的发送延迟
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError:
+            pass
         if self.timeout:
             self._idler = self.ioloop.call_every(
                 self.timeout, self.handle_timeout, _errback=self.handle_error

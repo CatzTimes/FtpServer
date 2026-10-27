@@ -74,7 +74,6 @@ windowsTitle = f"{appLabel} {appVersion}"
 
 logMsg = queue.Queue()
 isLogThreadRunning: bool = True
-logMsgBackup: list[str] = []
 
 permReadOnly: str = UserList.PERM_READ_ONLY
 permReadWrite: str = UserList.PERM_READ_WRITE
@@ -896,17 +895,18 @@ def removeTlsCert():
 
 def flushLogToWidget(pending: list[str]):
     global loggingWidget
-    global logMsgBackup
 
     loggingWidget.configure(state=tk.NORMAL)
-    logMsgBackup.extend(pending)
-    if len(logMsgBackup) > 200:
-        loggingWidget.delete("1.0", tk.END)
-        logMsgBackup = logMsgBackup[-50:]
-        loggingWidget.insert(tk.END, "".join(logMsgBackup))
-    else:
-        loggingWidget.insert(tk.END, "".join(pending))
-    loggingWidget.see(tk.END)
+    loggingWidget.insert(tk.END, "".join(pending))
+    # 行数上限 400，超出时只删除前部溢出行：成本与删除量成正比，
+    # 避免旧实现“清空全文+重插尾部”造成的整窗重渲染尖峰
+    totalLines = int(loggingWidget.index("end-1c").split(".")[0])
+    if totalLines > 400:
+        overflow = totalLines - 200
+        loggingWidget.delete("1.0", f"{overflow}.0")
+    # 窗口隐藏(最小化到托盘)时跳过滚动，避免无谓的滚动条更新与重渲染
+    if mainWindow.state() != "withdrawn":
+        loggingWidget.see(tk.END)
     loggingWidget.configure(state=tk.DISABLED)
 
 

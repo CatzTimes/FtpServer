@@ -42,7 +42,7 @@ ftpServer.py          # 主入口：GUI (Tkinter) + FTP 服务器生命周期（
     └── servers.py        # ThreadedFTPServer
 ```
 
-`mypyftpdlib` 基线为上游 pyftpdlib `2.2.0 (release-2.2.0)`，同步上游时必须保留本地定制：中文日志、`handlers/ftp/control.py` 的 `ftp_PASS` 密码哈希钩子（`Settings.Settings.encry2sha256`）、`filesystems.py` 的 `_isabs` Windows 加固、移除 `__main__.py` 与 `curses` 依赖。
+`mypyftpdlib` 基线为上游 pyftpdlib `2.2.0 (release-2.2.0)`，同步上游时必须保留本地定制：中文日志、`handlers/ftp/control.py` 的 `ftp_PASS` 密码哈希钩子（`Settings.Settings.encry2sha256`）、`filesystems.py` 的 `_isabs` Windows 加固、移除 `__main__.py` 与 `curses` 依赖、数据通道缓冲区 256KiB + TCP_NODELAY（`handlers/ftp/data.py` 与 `producers.py` 需同值配对）、`handle_read` 接收批处理（注意 recv 返回空串前内部已关闭文件，不得攒批写入）。
 
 ### 关键设计模式
 
@@ -52,6 +52,8 @@ ftpServer.py          # 主入口：GUI (Tkinter) + FTP 服务器生命周期（
 4. **系统托盘**：`pystray.Icon` 在守护线程中运行，关闭窗口时最小化到托盘
 5. **强制 FTPS**：`startServer()` 无证书时经 `promptTlsCertSetup()` 引导生成/选择自定义证书，`create_server_handler()` 始终返回 TLS handler
 6. **证书生成**：`generateTlsCert()` 使用 cryptography x509 API（pyOpenSSL `crypto.*` 已废弃）
+7. **PEP 810 延迟导入**：pystray/win32com/PIL/webbrowser/mypyftpdlib 整链等仅在首次使用时加载（`lazy import`），冷启动导入耗时减半；新增顶层导入时优先考虑 lazy
+8. **地址缓存**：`getHostAddrs()` 5 秒 TTL 缓存 getaddrinfo 结果
 
 ### 配置文件
 

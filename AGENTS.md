@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## 项目结构与模块组织
-`ftpServer.py` 是 Windows 图形界面入口和 FTP 服务启动文件（强制 FTPS，无证书时启动引导生成或选择自定义证书）。仓库根目录下的 `Settings.py` 负责配置读写，`UserList.py` 负责多用户 CSV 解析，`myUtils.py` 提供图标、路径校验等通用工具。`mypyftpdlib/` 是本项目使用的定制版 FTP 库：基线为上游 pyftpdlib `2.2.0 (release-2.2.0)`，同步上游时必须保留本地定制——中文日志、`handlers/ftp/control.py` 的 `ftp_PASS` 密码哈希钩子、`filesystems.py` 的 `_isabs` Windows 加固、移除 `__main__.py` 与 `curses` 依赖。`ftpServer.build/`、`ftpServer.dist/`、`ftpServer.onefile-build/` 都属于生成产物，不要手工修改。`FtpServer.json`、`FtpServerUserList.csv` 这类运行期数据提交前应先脱敏。
+`ftpServer.py` 是 Windows 图形界面入口和 FTP 服务启动文件（强制 FTPS，无证书时启动引导生成或选择自定义证书；使用 PEP 810 延迟导入加速窗口出现）。仓库根目录下的 `Settings.py` 负责配置读写，`UserList.py` 负责多用户 CSV 解析，`myUtils.py` 提供图标、路径校验等通用工具。`mypyftpdlib/` 是本项目使用的定制版 FTP 库：基线为上游 pyftpdlib `2.2.0 (release-2.2.0)`，同步上游时必须保留本地定制——中文日志、`handlers/ftp/control.py` 的 `ftp_PASS` 密码哈希钩子、`filesystems.py` 的 `_isabs` Windows 加固、移除 `__main__.py` 与 `curses` 依赖、数据通道缓冲区 256KiB + TCP_NODELAY（`data.py` 与 `producers.py` 必须同值配对）、`handle_read` 接收批处理（recv 返回空串前内部已关闭文件，禁止攒批写入）。`ftpServer.build/`、`ftpServer.dist/`、`ftpServer.onefile-build/` 都属于生成产物，不要手工修改。`FtpServer.json`、`FtpServerUserList.csv` 这类运行期数据提交前应先脱敏。
 
 ```
 ftpServer.py          # 主入口：GUI (Tkinter) + FTP 服务器生命周期

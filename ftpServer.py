@@ -65,7 +65,7 @@ lazy from mypyftpdlib.handlers import FTPHandler, TLS_FTPHandler
 lazy from mypyftpdlib.servers import ThreadedFTPServer
 
 appLabel = "FTP文件服务器"
-appVersion = "v1.28"
+appVersion = "v1.29"
 appAuthor = "JARK006"
 forkMaintainer = "CatzTimes"
 githubLink = "https://github.com/CatzTimes/FtpServer"

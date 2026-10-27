@@ -3,7 +3,9 @@ import io
 import os
 import sys
 from pathlib import Path
-from PIL import Image, ImageTk
+
+# PEP 810 延迟导入 (Python 3.15)：PIL 仅在创建托盘/窗口图标时才需要
+lazy from PIL import Image, ImageTk
 
 tipsTitle: str = "若用户名空白则默认匿名访问(anonymous)，若中文乱码则需更换编码方式，若无需开启IPv6只需将其端口留空即可，IPv4同理。本软件强制使用 FTPS [TLS/SSL显式加密] 传输，未配置证书时开启服务会引导生成或选择证书；多用户配置请点击“帮助”按钮查看使用说明。若客户端无法连接，则需到系统防火墙允许本软件通过。\n\n本机所有IP地址："
 

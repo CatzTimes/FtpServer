@@ -33,22 +33,25 @@ import sys
 import threading
 import ctypes
 import functools
-import webbrowser
 from pathlib import Path
+lazy import webbrowser
 
 # GUI相关导入
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox, font
 
 # 第三方库导入
-import pystray
+# PEP 810 延迟导入 (Python 3.15)：以下模块仅在首次使用时真正加载，
+# 显著加快窗口出现速度（PIL/win32com/pystray/webbrowser 为 GUI 辅助依赖，
+# mypyftpdlib 整链约 150ms 延后到开启服务时加载）
+lazy import pystray
 import win32clipboard
 import win32con
-import win32com.client
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
+lazy import win32com.client
+lazy from cryptography import x509
+lazy from cryptography.hazmat.primitives import hashes, serialization
+lazy from cryptography.hazmat.primitives.asymmetric import rsa
+lazy from cryptography.x509.oid import NameOID
 
 # 本地模块导入
 import Settings
@@ -56,9 +59,9 @@ import UserList
 import myUtils
 
 # 汉化 pyftpdlib 模块导入
-from mypyftpdlib.authorizers import DummyAuthorizer
-from mypyftpdlib.handlers import FTPHandler, TLS_FTPHandler
-from mypyftpdlib.servers import ThreadedFTPServer
+lazy from mypyftpdlib.authorizers import DummyAuthorizer
+lazy from mypyftpdlib.handlers import FTPHandler, TLS_FTPHandler
+lazy from mypyftpdlib.servers import ThreadedFTPServer
 
 appLabel = "FTP文件服务器"
 appVersion = "v1.28"

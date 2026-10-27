@@ -1,4 +1,5 @@
 import base64
+import functools
 import io
 import os
 import sys
@@ -76,6 +77,7 @@ Windows文件管理器对 "显式FTPS" 支持不佳，推荐使用开源客户�
 4. 配置文件可以是UTF-8或GBK编码。
 """
 
+@functools.cache
 def getAppDirectory() -> str:
     appDirectory = str(os.path.dirname(os.path.abspath(sys.argv[0]))).replace("\\", "/")
     if (

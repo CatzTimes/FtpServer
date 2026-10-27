@@ -31,6 +31,7 @@ import queue
 import socket
 import sys
 import threading
+import time
 import ctypes
 import functools
 from pathlib import Path
@@ -321,7 +322,24 @@ def copyToClipboard(text: str):
 
 
 def ip_into_int(ip_str: str) -> int:
-    return functools.reduce(lambda x, y: (x << 8) + y, map(int, ip_str.split(".")))
+    return int.from_bytes(bytes(map(int, ip_str.split("."))), "big")
+
+
+# getaddrinfo 结果缓存：启动与开启服务都会查询本机地址，5 秒内直接复用
+_hostAddrsCache: tuple[float, list] | None = None
+
+
+def getHostAddrs(maxAgeSeconds: float = 5.0) -> list:
+    global _hostAddrsCache
+    now = time.monotonic()
+    if _hostAddrsCache is not None and now - _hostAddrsCache[0] < maxAgeSeconds:
+        return _hostAddrsCache[1]
+    try:
+        addrs = socket.getaddrinfo(socket.gethostname(), None)
+    except Exception:
+        addrs = [(socket.AF_INET, None, None, None, ("127.0.0.1", None))]
+    _hostAddrsCache = (now, addrs)
+    return addrs
 
 
 # https://blog.mimvp.com/article/32438.html
@@ -573,18 +591,16 @@ def startServer():
         return
 
     if userList.isEmpty():
+        userDisplay = (
+            settings.userName if len(settings.userName) > 0 else "匿名访问(anonymous)"
+        )
+        pwdDisplay = "******" if len(settings.userPassword) > 0 else "无"
         logger.info(
-            "\n\n用户: {}\n密码: {}\n权限: {}\n编码: {}\n目录: {}\n".format(
-                (
-                    settings.userName
-                    if len(settings.userName) > 0
-                    else "匿名访问(anonymous)"
-                ),
-                ("******" if len(settings.userPassword) > 0 else "无"),
-                ("只读" if settings.isReadOnly else "读写"),
-                ("GBK" if settings.isGBK else "UTF-8"),
-                settings.directoryList[0],
-            )
+            f"\n\n用户: {userDisplay}\n"
+            f"密码: {pwdDisplay}\n"
+            f"权限: {'只读' if settings.isReadOnly else '读写'}\n"
+            f"编码: {'GBK' if settings.isGBK else 'UTF-8'}\n"
+            f"目录: {settings.directoryList[0]}\n"
         )
     else:
         userList.printUserList()
@@ -939,10 +955,7 @@ def getTipsAndUrlList() -> tuple[str, list, bool, bool]:
     """
     global settings
 
-    try:
-        addrs = socket.getaddrinfo(socket.gethostname(), None)
-    except Exception:
-        addrs = [(socket.AF_INET, None, None, None, ('127.0.0.1', None))]
+    addrs = getHostAddrs()
 
     IPv4IPstr = ""
     IPv6IPstr = ""
@@ -964,11 +977,11 @@ def getTipsAndUrlList() -> tuple[str, list, bool, bool]:
             IPv6FtpUrlList.append(fullUrl)
             if ipStr.startswith(("fe8", "fe9", "fea", "feb", "fd")):
                 IPv6IPstr += f"\n[IPv6 局域网] {fullUrl}"
-            elif ipStr[:4] == "240e":
+            elif ipStr.startswith("240e"):
                 IPv6IPstr += f"\n[IPv6 电信公网] {fullUrl}"
-            elif ipStr[:4] == "2408":
+            elif ipStr.startswith("2408"):
                 IPv6IPstr += f"\n[IPv6 联通公网] {fullUrl}"
-            elif ipStr[:4] == "2409":
+            elif ipStr.startswith("2409"):
                 IPv6IPstr += f"\n[IPv6 移动公网] {fullUrl}"
             else:
                 IPv6IPstr += f"\n[IPv6 公网] {fullUrl}"
